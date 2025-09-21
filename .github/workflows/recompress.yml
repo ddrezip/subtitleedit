@@ -74,4 +74,4 @@ jobs:
           files: |
             subtitleedit-${{ steps.get_release.outputs.tag }}.7z
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ vars.PAT_TOKEN }}
