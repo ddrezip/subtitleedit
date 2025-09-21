@@ -1,0 +1,78 @@
+name: Recompress Subtitle Edit
+
+on:
+  push:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  recompress:
+    runs-on: ubuntu-rolling
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v5
+
+      - name: Install required software
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full jq curl unzip upx
+
+      - name: Get latest Subtitle Edit release info
+        id: get_release
+        run: |
+          latest=$(curl -s https://api.github.com/repos/SubtitleEdit/subtitleedit/releases/latest)
+          tag=$(echo "$latest" | jq -r .tag_name)
+          title=$(echo "$latest" | jq -r .name)
+          asset_url=$(echo "$latest" | jq -r '.assets[] | select(.name | test("SE[0-9]+\\.zip$")) | .browser_download_url')
+          echo "tag=$tag" >> $GITHUB_OUTPUT
+          echo "title=$title" >> $GITHUB_OUTPUT
+          echo "asset_url=$asset_url" >> $GITHUB_OUTPUT
+
+      - name: Check if release already exists
+        id: check_release
+        run: |
+          existing=$(curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ steps.get_release.outputs.tag }})
+          if echo "$existing" | grep -q '"id":'; then
+            echo "already_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "already_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download, recompress (with and without UPX)
+        if: steps.check_release.outputs.already_exists == 'false'
+        run: |
+          version="${{ steps.get_release.outputs.tag }}"
+
+          # Download
+          curl -L -o subtitleedit.zip "${{ steps.get_release.outputs.asset_url }}"
+
+          # Unzip
+          unzip subtitleedit.zip -d subtitleedit
+
+          # Archive with original exe
+          7z a -t7z -mx=9 "subtitleedit-${version}.7z" ./subtitleedit/*
+
+          # Compress SubtitleEdit.exe with UPX (max)
+          upx --best --lzma subtitleedit/SubtitleEdit.exe
+
+          # Archive with UPX-compressed exe
+          7z a -t7z -mx=9 "subtitleedit-${version}-upx.7z" ./subtitleedit/*
+
+      - name: Create new release
+        if: steps.check_release.outputs.already_exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_release.outputs.tag }}
+          name: "${{ steps.get_release.outputs.title }} Windows portable, 7z"
+          body: "Recompressed from the original release at https://github.com/SubtitleEdit/subtitleedit/releases/tag/${{ steps.get_release.outputs.tag }}"
+          draft: false
+          prerelease: false
+          files: |
+            subtitleedit-${{ steps.get_release.outputs.tag }}.7z
+            subtitleedit-${{ steps.get_release.outputs.tag }}-upx.7z
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
