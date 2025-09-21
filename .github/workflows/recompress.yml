@@ -57,10 +57,10 @@ jobs:
           7z a -t7z -mx=9 "subtitleedit-${version}.7z" ./subtitleedit/*
 
           # Compress SubtitleEdit.exe with UPX (max)
-          upx --best --lzma subtitleedit/SubtitleEdit.exe
+          # upx --ultra-brute subtitleedit/SubtitleEdit.exe
 
           # Archive with UPX-compressed exe
-          7z a -t7z -mx=9 "subtitleedit-${version}-upx.7z" ./subtitleedit/*
+          # 7z a -t7z -mx=9 "subtitleedit-${version}-upx.7z" ./subtitleedit/*
 
       - name: Create new release
         if: steps.check_release.outputs.already_exists == 'false'
@@ -73,6 +73,5 @@ jobs:
           prerelease: false
           files: |
             subtitleedit-${{ steps.get_release.outputs.tag }}.7z
-            subtitleedit-${{ steps.get_release.outputs.tag }}-upx.7z
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
