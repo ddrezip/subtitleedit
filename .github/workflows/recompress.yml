@@ -73,5 +73,4 @@ jobs:
           prerelease: false
           files: |
             subtitleedit-${{ steps.get_release.outputs.tag }}.7z
-        env:
-          GITHUB_TOKEN: ${{ vars.PAT_TOKEN }}
+          token: ${{ vars.PAT_TOKEN }}
